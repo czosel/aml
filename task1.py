@@ -4,6 +4,7 @@ import pickle
 import urllib.request
 from lib.prepare import prepare_data
 from lib.svr import svr
+import lib.meta as meta
 
 
 def load_csv(path):
@@ -45,13 +46,25 @@ def run_all(config, prepare_config):
                 keys, values = zip(*params.items())
                 for bundle in itertools.product(*values):
                     _params = dict(zip(keys, bundle))
-                    prediction, scores = globals()[algo](X, X_test, y, _params)
-                    results[algo] = prediction, scores
+                    prediction, scores, train_prediction = globals()[algo](X, X_test, y, _params)
+                    results[algo] = prediction, scores, y, X, train_prediction, X_test
                     print(
                         f"{scores.mean():.2f}{highlight(scores.mean())} (+/- {scores.std():.2f}); algo={algo}, params={_params}"
                     )
 
     return results
+
+def select_algo(results):
+    print("Baseline: ", max([results[algo][1] for algo, _ in results]))
+    errors = np.array([np.square(np.array(results[algo][2]) - np.array(results[algo][3])) for algo, _ in results])
+    best = np.argmax(errors, axis=1)
+    y = [results[algo][2] for algo, _ in results][0]
+    X = [results[algo][3] for algo, _ in results][0]
+    X_test = [results[algo][5] for algo, _ in results][0]
+    train_pred = np.array([results[algo][4] for algo, _ in results])
+    test_pred = np.array([results[algo][0] for algo, _ in results])
+    return meta.create_best_of(X, best, y, train_pred, test_pred, X_test)
+
 
 
 def highlight(score):
