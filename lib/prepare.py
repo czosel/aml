@@ -45,8 +45,8 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
         return scaler.transform(X), scaler.transform(X_test), y
 
     n_features = 0.5
-    direction = "forward"
-    percentile = 20
+    direction = "backward"
+    percentile = 25
 
     def select_percentile(data):
         nonlocal select
@@ -60,7 +60,7 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
             print(f"loading percentile selection from cache: {filename}")
             select = joblib.load(filename)
         else:
-            select = SelectPercentile(mutual_info_regression, percentile=20).fit(X, y)
+            select = SelectPercentile(mutual_info_regression, percentile=percentile).fit(X, y)
             if persistent:
                 print("saving " + filename)
                 joblib.dump(select, filename)
