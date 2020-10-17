@@ -14,8 +14,8 @@ from sklearn.feature_selection import (
 )
 from sklearn.linear_model import BayesianRidge
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import ExtraTreesRegressor
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.ensemble import ExtraTreesRegressor, IsolationForest
+from sklearn.neighbors import KNeighborsRegressor, LocalOutlierFactor
 from sklearn import svm
 
 # import matplotlib.pyplot as plt
@@ -25,13 +25,18 @@ from sklearn.linear_model import LassoCV
 def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
     n_features = prepare_config.get("n_features", 1)
     direction = prepare_config.get("direction", "forward")
-    percentile = prepare_config.get("percentile", 50)
+    percentile = prepare_config.get("percentile", 20)
+    n_neighbors = prepare_config.get("n_neighbors", 40)
+    outlier_algo = prepare_config.get("outlier_algo", "auto")
+    contamination = prepare_config.get("contamination", "auto")
+    n_estimators = prepare_config.get("n_estimators", 100)
+    m = prepare_config.get("m", 3)
 
     def impute(data, reg=None):
         """ Impute missing values. """
         X, X_test, y = data
         if reg is None:
-            imp = SimpleImputer(missing_values=np.nan, strategy="mean")
+            imp = SimpleImputer(missing_values=np.nan, strategy="median")
             imp.fit(X)
             return imp.transform(X), imp.transform(X_test), y
         else:
@@ -95,8 +100,28 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
 
         return select.transform(X), select.transform(X_test), y
 
+    def dump_outliers(data):
+        algos = {
+            "isolation_forest": IsolationForest(
+                n_estimators=n_estimators, contamination=contamination
+            ),
+            "local_outlier_factor": LocalOutlierFactor(
+                n_neighbors, contamination=contamination
+            ),
+            "svm": svm.OneClassSVM(nu=contamination, kernel="rbf"),
+        }
+        X, X_test, y = data
+        clf = algos[outlier_algo]
+        if outlier_algo == "local_outlier_factor":
+            y_pred = clf.fit_predict(X)
+        else:
+            y_pred = clf.fit(X).predict(X)
+
+        # print(f"removing {np.where(y_pred < 0)[0].size} outliers")
+        return X[y_pred > 0], X_test, y[y_pred > 0]
+
     def clip_outliers(data):
-        def _clip_outliers(data, m=3):
+        def _clip_outliers(data):
             stdev = np.std(data)
             mean = np.mean(data)
             maskMin = mean - stdev * m
@@ -117,5 +142,7 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
     y = np.ravel(np.delete(np.delete(y_raw, 0, 0), 0, 1))
 
     return clip_outliers(
-        select_greedy(select_model(standardize(impute((_X, _X_test, y)))))
+        dump_outliers(
+            select_greedy(select_model(standardize(impute((_X, _X_test, y)))))
+        )
     )

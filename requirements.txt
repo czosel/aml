@@ -3,3 +3,4 @@ black
 python-slugify
 xgboost
 matplotlib
+scipy
