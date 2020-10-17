@@ -18,6 +18,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn import svm
 
 persistent = True
+save = False
 
 
 def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
@@ -31,12 +32,17 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
         else:
             estimators = {
                 "bayes_ridge": BayesianRidge(),
-                "dec_tree": DecisionTreeRegressor(max_features="sqrt", random_state=0),
+                "dec_tree": DecisionTreeRegressor(max_features="sqrt"),
                 "extra_tree": ExtraTreesRegressor(n_estimators=10, random_state=0),
                 "KNN": KNeighborsRegressor(n_neighbors=4),
             }
-            imp = IterativeImputer(estimator=estimators[reg])
+            imp = IterativeImputer(
+                estimator=estimators[reg], max_iter=10, tol=0.5, n_nearest_features=100
+            )
+            tic = time()
             imp.fit(X)
+            toc = time()
+            print(f"impute done in: {toc - tic:.2f}s")
             return imp.transform(X), imp.transform(X_test), y
 
     def standardize(data):
@@ -44,9 +50,9 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
         scaler = preprocessing.RobustScaler().fit(X)
         return scaler.transform(X), scaler.transform(X_test), y
 
-    n_features = 0.5
+    n_features = 0.99
     direction = "backward"
-    percentile = 25
+    percentile = 15
 
     def select_percentile(data):
         nonlocal select
@@ -60,7 +66,9 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
             print(f"loading percentile selection from cache: {filename}")
             select = joblib.load(filename)
         else:
-            select = SelectPercentile(mutual_info_regression, percentile=percentile).fit(X, y)
+            select = SelectPercentile(
+                mutual_info_regression, percentile=percentile
+            ).fit(X, y)
             if persistent:
                 print("saving " + filename)
                 joblib.dump(select, filename)
@@ -79,13 +87,13 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
             svr = svm.SVR(kernel="rbf", C=100).fit(X, y)
             tic = time()
             select = SequentialFeatureSelector(
-                svr, direction=direction, n_features_to_select=n_features, n_jobs=8
+                svr, direction=direction, n_features_to_select=n_features, n_jobs=-1
             ).fit(X, y)
             toc = time()
             print(f"features selected: {select.get_support()}")
             print(f"done in: {toc - tic:.2f}s")
 
-            if persistent:
+            if persistent and save:
                 print("saving " + filename)
                 joblib.dump(select, filename)
 
@@ -115,6 +123,4 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
     _X_test = np.delete(np.delete(X_test_raw, 0, 0), 0, 1)
     y = np.ravel(np.delete(np.delete(y_raw, 0, 0), 0, 1))
 
-    return clip_outliers(
-        select_greedy(select_percentile(standardize(impute((_X, _X_test, y)))))
-    )
+    return clip_outliers(select_percentile(standardize(impute((_X, _X_test, y)))))

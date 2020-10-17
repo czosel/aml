@@ -1,10 +1,12 @@
 import numpy as np
 import itertools
+import json
 import pickle
 import urllib.request
 from lib.prepare import prepare_data
 from lib.svr import svr
 import lib.meta as meta
+from slugify import slugify
 
 
 def load_csv(path):
@@ -77,9 +79,9 @@ def highlight(score):
     return "   "
 
 
-def run_one(algo, select=True, clip=True, export=True, **kwargs):
+def run_one(algo, select=True, clip=True, export=True, params={}):
     X, X_test, y = prepare_data(X_train_raw, X_test_raw, y_raw, select, clip)
-    prediction, scores = globals()[algo](X, X_test, y, **kwargs)
+    prediction, scores = globals()[algo](X, X_test, y, params)
     print(f"{algo}: {scores.mean():.2f} (+/- {scores.std():.2f})")
 
     if export:
@@ -87,7 +89,7 @@ def run_one(algo, select=True, clip=True, export=True, **kwargs):
         for i in range(len(prediction)):
             out.append([int(i), prediction[i]])
 
-        filename = f"{algo}-select-{select}-clip-{clip}.csv"
+        filename = f"{algo}-{slugify(json.dumps(params))}.csv"
         np.savetxt(
             filename,
             out,
@@ -104,7 +106,7 @@ def run_one(algo, select=True, clip=True, export=True, **kwargs):
 config = {
     # "lasso": {"alpha": [0.1, 0.25, 0.5, 0.75,1.0,1.5, 2.5, 4], "lasso_tol": [1e-3] },
     "svr": {
-        "C": [10, 20, 30, 50, 70, 100, 200],
+        "C": [20, 30, 50, 70, 100],
         "epsilon": [0.01, 0.1, 1],
         "gamma": ["scale"],  # "auto", 1e-5, 1e-3, 0.1
         "kernel": ["rbf"],  # "linear", "poly", "sigmoid"
@@ -125,4 +127,4 @@ params = {
 }
 
 results = run_all(config, {"cache": False, "select": [True], "clip": [True]})
-# run_one("svr")
+# run_one("svr", params={"C": 50, "epsilon": 0.01, "dir": "backward", "sel": "0.5/25"})
