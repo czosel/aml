@@ -9,6 +9,7 @@ from sklearn import preprocessing
 from sklearn.feature_selection import (
     SelectPercentile,
     mutual_info_regression,
+    SelectFromModel,
     SequentialFeatureSelector,
 )
 from sklearn.linear_model import BayesianRidge
@@ -17,11 +18,15 @@ from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn import svm
 
-persistent = True
-save = False
+# import matplotlib.pyplot as plt
+from sklearn.linear_model import LassoCV
 
 
-def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
+def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
+    n_features = prepare_config.get("n_features", 1)
+    direction = prepare_config.get("direction", "forward")
+    percentile = prepare_config.get("percentile", 50)
+
     def impute(data, reg=None):
         """ Impute missing values. """
         X, X_test, y = data
@@ -50,52 +55,43 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
         scaler = preprocessing.RobustScaler().fit(X)
         return scaler.transform(X), scaler.transform(X_test), y
 
-    n_features = 0.99
-    direction = "backward"
-    percentile = 15
-
     def select_percentile(data):
-        nonlocal select
-        if not select:
-            return data
-
         X, X_test, y = data
 
-        filename = f"joblib/percentile-{n_features}-out-of-{percentile}-percent-direction-{direction}.joblib"
-        if persistent and Path(filename).is_file():
-            print(f"loading percentile selection from cache: {filename}")
-            select = joblib.load(filename)
-        else:
-            select = SelectPercentile(
-                mutual_info_regression, percentile=percentile
-            ).fit(X, y)
-            if persistent:
-                print("saving " + filename)
-                joblib.dump(select, filename)
+        select = SelectPercentile(mutual_info_regression, percentile=percentile).fit(
+            X, y
+        )
 
         return select.transform(X), select.transform(X_test), y
+
+    def select_model(data):
+        X, X_test, y = data
+
+        lasso = LassoCV(tol=1).fit(X, y)
+        importance = np.abs(lasso.coef_)
+        # plt.bar(height=importance, x=range(0, len(importance)))
+        # plt.title("Feature importances via coefficients")
+        # plt.show()
+
+        sfm = SelectFromModel(lasso, threshold=0.01).fit(X, y)
+        print(
+            "Features selected by SelectFromModel: "
+            f"{np.where(sfm.get_support() == True)[0].size}"
+        )
+
+        return sfm.transform(X), sfm.transform(X_test), y
 
     def select_greedy(data):
         X, X_test, y = data
 
-        filename = f"joblib/greedy-{n_features}-out-of-{percentile}-percent-direction-{direction}.joblib"
-
-        if persistent and Path(filename).is_file():
-            print(f"loading greedy selection from cache: {filename}")
-            select = joblib.load(filename)
-        else:
-            svr = svm.SVR(kernel="rbf", C=100).fit(X, y)
-            tic = time()
-            select = SequentialFeatureSelector(
-                svr, direction=direction, n_features_to_select=n_features, n_jobs=-1
-            ).fit(X, y)
-            toc = time()
-            print(f"features selected: {select.get_support()}")
-            print(f"done in: {toc - tic:.2f}s")
-
-            if persistent and save:
-                print("saving " + filename)
-                joblib.dump(select, filename)
+        svr = svm.SVR(kernel="rbf", C=100, tol=1).fit(X, y)
+        tic = time()
+        select = SequentialFeatureSelector(
+            svr, direction=direction, n_features_to_select=n_features, n_jobs=-1
+        ).fit(X, y)
+        toc = time()
+        print(f"features selected: {select.get_support()}")
+        print(f"done in: {toc - tic:.2f}s")
 
         return select.transform(X), select.transform(X_test), y
 
@@ -106,9 +102,6 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
             maskMin = mean - stdev * m
             maskMax = mean + stdev * m
             return np.clip(data, maskMin, maskMax)
-
-        if not clip:
-            return data
 
         X, X_test, y = data
         return _clip_outliers(X), _clip_outliers(X_test), y
@@ -123,4 +116,6 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, select=True, clip=True):
     _X_test = np.delete(np.delete(X_test_raw, 0, 0), 0, 1)
     y = np.ravel(np.delete(np.delete(y_raw, 0, 0), 0, 1))
 
-    return clip_outliers(select_percentile(standardize(impute((_X, _X_test, y)))))
+    return clip_outliers(
+        select_greedy(select_model(standardize(impute((_X, _X_test, y)))))
+    )

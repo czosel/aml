@@ -1,3 +1,5 @@
 git+git://github.com/scikit-learn/scikit-learn.git@master#egg=scikit-learn
 black
 python-slugify
+xgboost
+matplotlib

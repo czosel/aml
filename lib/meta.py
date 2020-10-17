@@ -3,6 +3,7 @@ import numpy as np
 import sklearn
 from sklearn.model_selection import KFold
 
+
 def create_best_of(X, best, y, train_pred, test_pred, X_test):
     kf = KFold(n_splits=5, shuffle=True)
     scores = []
@@ -12,7 +13,7 @@ def create_best_of(X, best, y, train_pred, test_pred, X_test):
         # predictor = np.argmax(np.array(regr.predict(X[test])), axis=1)
         predictor = regr.predict(X[test])
         pred = [train_pred[predictor[i], test[i]] for i in range(len(test))]
-        scores.append(sklearn.metrics.py r2_score(test_pred, y[test]))
+        scores.append(sklearn.metrics.py, r2_score(test_pred, y[test]))
 
     print("CV scores: ", scores, mean(scores), std(scores))
     regr = xgb.XGBClassifier(max_depth=3)
