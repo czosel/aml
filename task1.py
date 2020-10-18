@@ -1,10 +1,7 @@
 import numpy as np
 import itertools
 import json
-import joblib
 from pathlib import Path
-import pickle
-import urllib.request
 from lib.prepare import prepare_data
 from lib.svr import svr
 import lib.meta as meta
@@ -16,18 +13,7 @@ from sklearn.linear_model import Lasso
 from scipy import stats
 from xgboost import XGBRegressor
 from sklearn.neighbors import KNeighborsClassifier
-
-
-def load_csv(path):
-    return np.genfromtxt(path, dtype=float, delimiter=",")
-
-
-X_test_raw = load_csv("data/X_test.csv")
-X_train_raw = load_csv("data/X_train.csv")
-y_raw = load_csv("data/y_train.csv")
-
-print("training data", X_train_raw.shape)
-print("test data", X_test_raw.shape)
+from lib.load import load_data
 
 
 models = {
@@ -39,22 +25,15 @@ models = {
 }
 
 
-def run_all(config, prepare_config):
+def run_all(config, prepare_config, export=True):
     results = {}
+    X, X_test, y = load_data()
 
     prepare_keys, prepare_values = zip(*prepare_config.items())
     for prepare_bundle in itertools.product(*prepare_values):
         _prepare_config = dict(zip(prepare_keys, prepare_bundle))
-        cache_key = f"joblib/prepare/{slugify(json.dumps(_prepare_config))}"
 
-        if _prepare_config.pop("load") and Path(cache_key).is_file():
-            # print(f"Prepare config: {_prepare_config} (from cache)")
-            X, X_test, y = joblib.load(cache_key)
-        else:
-            # print(f"Prepare config: {_prepare_config} (no cache)")
-            X, X_test, y = prepare_data(X_train_raw, X_test_raw, y_raw, _prepare_config)
-            if _prepare_config.pop("save"):
-                joblib.dump((X, X_test, y), cache_key)
+        X, X_test, y = prepare_data(X, X_test, y, _prepare_config)
 
         for algo, _config in config.items():
             model = models[algo]
@@ -65,6 +44,23 @@ def run_all(config, prepare_config):
             print(
                 f"{algo} (CV score={search.best_score_:.3f}): {search.best_params_}, {_prepare_config}"
             )
+
+            if export:
+                out = []
+                prediction = search.best_estimator_.predict(X_test)
+                for i in range(len(prediction)):
+                    out.append([int(i), prediction[i]])
+
+                filename = f"{algo}-{slugify(json.dumps({**search.best_params_, **_prepare_config}))}.csv"
+                np.savetxt(
+                    filename,
+                    out,
+                    fmt=["%1.1f", "%1.14f"],
+                    delimiter=",",
+                    header="id,y",
+                    comments="",
+                )
+                print("done, saved " + filename)
 
     return results
 
@@ -157,13 +153,12 @@ params = {
 results = run_all(
     config,
     {
-        "load": [True],
-        "save": [True],
         "n_features": [80],
         "direction": ["forward"],
-        "outlier_algo": ["isolation_forest"],  # , "local_outlier_factor"],
-        "contamination": [0.07],  # list(np.arange(0.04, 0.12, 0.03)),
-        "m": [3],
+        # "outlier_algo": ["isolation_forest"],  # , "local_outlier_factor"],
+        # "contamination": [0.07],  # list(np.arange(0.04, 0.12, 0.03)),
+        # "m": [3],
     },
+    export=False,
 )
 # run_one("svr", params={"C": 50, "epsilon": 0.01, "dir": "backward", "sel": "0.5/25"})

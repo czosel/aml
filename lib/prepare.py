@@ -20,14 +20,15 @@ from sklearn import svm
 
 # import matplotlib.pyplot as plt
 from sklearn.linear_model import LassoCV
+from xgboost import XGBClassifier, XGBRegressor
 
 
-def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
+def prepare_data(X, X_test, y, prepare_config):
     n_features = prepare_config.get("n_features", 1)
     direction = prepare_config.get("direction", "forward")
     percentile = prepare_config.get("percentile", 20)
     n_neighbors = prepare_config.get("n_neighbors", 40)
-    outlier_algo = prepare_config.get("outlier_algo", "auto")
+    outlier_algo = prepare_config.get("outlier_algo", "isolation_forest")
     contamination = prepare_config.get("contamination", "auto")
     n_estimators = prepare_config.get("n_estimators", 100)
     m = prepare_config.get("m", 3)
@@ -67,6 +68,7 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
             X, y
         )
 
+        joblib.dump(select.get_support(), "joblib/percentile_support")
         return select.transform(X), select.transform(X_test), y
 
     def select_model(data):
@@ -78,7 +80,9 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
         # plt.title("Feature importances via coefficients")
         # plt.show()
 
-        sfm = SelectFromModel(lasso, threshold=0.01).fit(X, y)
+        xgb = XGBRegressor(max_depth=4).fit(X, y)
+
+        sfm = SelectFromModel(xgb, max_features=160).fit(X, y)
         print(
             "Features selected by SelectFromModel: "
             f"{np.where(sfm.get_support() == True)[0].size}"
@@ -95,6 +99,9 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
             svr, direction=direction, n_features_to_select=n_features, n_jobs=-1
         ).fit(X, y)
         toc = time()
+
+        joblib.dump(select.get_support(), "joblib/greedy_support")
+
         print(f"features selected: {select.get_support()}")
         print(f"done in: {toc - tic:.2f}s")
 
@@ -136,13 +143,4 @@ def prepare_data(X_train_raw, X_test_raw, y_raw, prepare_config):
         print(data)
         return data
 
-    # delete label row and first column
-    _X = np.delete(np.delete(X_train_raw, 0, 0), 0, 1)
-    _X_test = np.delete(np.delete(X_test_raw, 0, 0), 0, 1)
-    y = np.ravel(np.delete(np.delete(y_raw, 0, 0), 0, 1))
-
-    return clip_outliers(
-        dump_outliers(
-            select_greedy(select_model(standardize(impute((_X, _X_test, y)))))
-        )
-    )
+    return clip_outliers(dump_outliers(standardize(impute((X, X_test, y)))))
