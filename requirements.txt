@@ -1,4 +1,4 @@
-git+git://github.com/scikit-learn/scikit-learn.git@master#egg=scikit-learn
+scikit-learn
 python-slugify
 xgboost
 matplotlib
