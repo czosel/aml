@@ -1,7 +1,7 @@
 import numpy as np
 import json
 from slugify import slugify
-from sklearn.svm import SVR
+from sklearn.svm import LinearSVC
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import (
     StandardScaler,
@@ -36,7 +36,10 @@ X, X_test, y = load_data()
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
-        ("svr", SVR()),
+        (
+            "svr",
+            LinearSVC(multi_class="crammer_singer", class_weight="balanced", tol=1),
+        ),
         # (
         #     "target_svr",
         #     TransformedTargetRegressor(regressor=SVR(), transformer=StandardScaler()),
@@ -54,8 +57,7 @@ fitting = Pipeline(
 )
 
 param_distributions = {
-    "svr__C": loguniform(50, 200),
-    "svr__epsilon": loguniform(1e-4, 1),
+    "svr__C": loguniform(0.1, 100),
     # "knn__n_neighbors": stats.randint(low=2, high=50),
     # "xgb__n_estimators": stats.randint(low=50, high=300),
     # "xgb__max_depth": stats.randint(low=2, high=10),
@@ -67,7 +69,8 @@ param_distributions = {
 search = RandomizedSearchCV(
     fitting,
     param_distributions,
-    n_iter=2,
+    scoring="balanced_accuracy",
+    n_iter=5,
     n_jobs=2,
 ).fit(X, y)
 print(f"CV score={search.best_score_:.3f}): {search.best_params_}")
