@@ -4,6 +4,7 @@ xgboost
 matplotlib
 scipy
 sklego
+tabularize
 
 black
 flake8

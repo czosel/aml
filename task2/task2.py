@@ -35,6 +35,7 @@ from sklearn.utils.fixes import loguniform
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.decomposition import PCA, KernelPCA
 
 
 X, X_test, y = load_data()
@@ -42,6 +43,8 @@ X, X_test, y = load_data()
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
+        # ("PCA", PCA(n_components=100, whiten=True)),
+        # ("KernelPCA", KernelPCA(n_components=100)),
         # (
         #     "LinearSVC",
         #     LinearSVC(multi_class="crammer_singer", class_weight="balanced", tol=1),
@@ -63,9 +66,12 @@ fitting = Pipeline(
 
 param_distributions = {
     # "LinearSVC__C": loguniform(1e-5, 1),
-    "SVC__C": loguniform(1e-5, 1),
-    "SVC__gamma": ["scale", "auto"],
-    # "SVC__kernel": ["rbf"]
+    # "PCA__n_components": stats.randint(100, 400),
+    # "KernelPCA__n_components": stats.randint(100, 500),
+    # "KernelPCA__kernel": ["linear", "poly", "rbf", "cosine", "sigmoid"],
+    "SVC__C": loguniform(1e-4, 100),
+    # "SVC__gamma": ["scale", "auto"],
+    "SVC__kernel": ["linear", "rbf"],
     # "GaussianNB__var_smoothing": loguniform(1e-11, 1e-3),
     # "KNN__n_neighbors": stats.randint(low=2, high=50),
     # "KNN__weights": ["uniform", "distance"],
@@ -80,9 +86,10 @@ search = RandomizedSearchCV(
     fitting,
     param_distributions,
     scoring="balanced_accuracy",
-    n_iter=10,
-    n_jobs=2,
+    n_iter=5,
+    n_jobs=4,
     verbose=2,
+    cv=5,
 ).fit(X, y)
 print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
 frame = pd.DataFrame.from_dict(search.cv_results_)
@@ -93,14 +100,14 @@ print(
     )
 )
 
-export = False
+export = True
 if export:
     prediction = search.best_estimator_.predict(X_test)
     out = []
     for i in range(len(prediction)):
         out.append([int(i), round(prediction[i])])
 
-    filename = f"results/{slugify(json.dumps({**search.best_params_}))}.csv"
+    filename = f"results/{search.best_score_:.3f}-{slugify(json.dumps({**search.best_params_}))}.csv"
     np.savetxt(
         filename,
         out,
