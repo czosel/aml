@@ -7,7 +7,7 @@ sklego
 lightgbm
 catboost
 tensorflow
-tabularize
+tabulate
 
 black
 flake8
