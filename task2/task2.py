@@ -23,14 +23,21 @@ from sklearn.feature_selection import (
     SelectPercentile,
     mutual_info_regression,
 )
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsRegressor, LocalOutlierFactor
 from sklego.mixture import GMMOutlierDetector, BayesianGMMOutlierDetector
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.compose import TransformedTargetRegressor
-from xgboost import XGBRegressor
+from xgboost import XGBRegressor, XGBClassifier
 from lib.load import load_data
+from lib.ShallowNetClassifier import ShallowNetClassifier
+from lib.DeepNetClassifier import DeepNetClassifier
+from lib.WideAndDeepNetClassifier import WideAndDeepNetClassifier
+from sklearn.linear_model import BayesianRidge
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.utils.fixes import loguniform
+from catboost import CatBoostClassifier
+
+from lightgbm import LGBMClassifier
 
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
@@ -43,45 +50,14 @@ from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
 X, X_test, y = load_data()
 
-
-class CustomClassifier(BaseEstimator, ClassifierMixin):
-    """
-    Dummy implementation of custom classifier.
-
-    See https://scikit-learn.org/stable/developers/develop.html#rolling-your-own-estimator
-    """
-
-    def __init__(self, C=1):
-        self.C = C
-        self.model = None
-
-    def fit(self, X, y):
-        # Check that X and y have correct shape
-        X, y = check_X_y(X, y)
-
-        self.model = LinearSVC(C=self.C)
-        self.model.fit(X, y)
-        return self
-
-    def predict(self, X):
-
-        # Check is fit had been called
-        check_is_fitted(self.model)
-
-        # Input validation
-        X = check_array(X)
-
-        return self.model.predict(X)
-
-
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
         # ("PCA", PCA(n_components=100, whiten=True)),
         # ("KernelPCA", KernelPCA(n_components=100)),
         # (
-        #     "LinearSVC",
-        #     LinearSVC(multi_class="crammer_singer", tol=0.1),
+        #     "target_svr",
+        #     TransformedTargetRegressor(regressor=SVR(), transformer=StandardScaler()),
         # ),
         ("Custom", CustomClassifier()),
         # ("SVC", SVC(class_weight="balanced", cache_size=2000)),
@@ -89,23 +65,16 @@ fitting = Pipeline(
         # ("GaussianNB", GaussianNB()),  # 0.61
         # ("KNN", KNeighborsClassifier()),  # 0.55
         # (
-        #     "LogisticRegression",
-        #     LogisticRegression(class_weight="balanced", tol=1),
-        # ), # 0.698
-        # ("MLP", MLPClassifier()),  # 0.63
-        # ("Quadratic", QuadraticDiscriminantAnalysis()), # 0.36
-        # ("RandomForest", RandomForestClassifier()),  # 0.515
-        # ("Ridge", RidgeClassifier(class_weight="balanced")),  # 0.657
-        # (  # BMAC score=0.613): {'LogisticRegression__C': 0.00177, 'Ridge__alpha': 0.054, 'SVC__C': 16.04}
-        #     "Stack",
-        #     StackingClassifier(
-        #         estimators=[
-        #             ("SVC1", SVC(kernel="linear", class_weight="balanced")),
-        #             ("SVC2", SVC(kernel="rbf", class_weight="balanced")),
-        #         ],
-        #         final_estimator=LogisticRegression(tol=1),
+        #     "kernel_ridge",
+        #     TransformedTargetRegressor(
+        #         regressor=KernelRidge(), transformer=StandardScaler()
         #     ),
         # ),
+        # ("knn", KNeighborsRegressor()),
+        # ("xgb", XGBClassifier(objective="multi:softmax")),
+        # ("LGBM", LGBMClassifier(n_jobs=-1, objective="multiclassova", num_class=3))
+        # ("CAT", CatBoostClassifier(loss_function='MultiClass'))
+        ("deep", WideAndDeepNetClassifier())
     ],
     memory="cache",
 )
@@ -141,15 +110,38 @@ param_distributions = {
     # "Quadratic__reg_param": loguniform(1e-6, 1),
     # "RandomForest__n_estimators": stats.randint(10, 100),
     # "Ridge__alpha": loguniform(1e-2, 100),
+    # "svr__C": loguniform(0.1, 100),
+    # "knn__n_neighbors": stats.randint(low=2, high=50),
+    # "xgb__n_estimators": [4, 10, 100, 500, 1000],
+    # "xgb__max_depth": [2, 4, 6, 10],
+    # "xgb__booster": ["gbtree", "gblinear"],
+    # "LGBM__num_leaves": [5, 10, 40, 80, 120, 200],
+    # "LGBM__min_data_in_leaf": [10,100,1000,1000],
+    # "LGBM__class_weight": [None],
+    # "CAT__class_weights": [[6, 1, 6]], #[[1,1,1], [6, 1, 6]],
+    # "CAT__depth": [8], #[4,6,8,10,12],
+    # 'CAT__iterations': [50], #[10,50,100],
+    #  'CAT__learning_rate': [0.01, 0.1, 1],
+    #  'CAT__random_strength': [0.0001, 0.01, 10],
+    #  'CAT__bagging_temperature': [0.0, 1.0],
+    #  'CAT__border_count': [32, 255],
+    #  'CAT__l2_leaf_reg':[2, 10, 30],
+    # "target_svr__regressor__C": stats.expon(scale=100),
+    # "target_svr__regressor__epsilon": stats.expon(),
+    # "kernel_ridge__regressor__alpha": loguniform(1, 1e4),
+    # "kernel_ridge__regressor__gamma": [0.1],
+    "deep__activation": ["tanh", "relu", "swish"],
+    # "deep__nfirst": [32,64,128,264],
+    # "deep__regularization": ["dropout"],
+    # "deep__weights": [[6.0,1.0,6.0],[5.0,1.0,5.0],[7.0,1.0,7.0]],
 }
 search = RandomizedSearchCV(
     fitting,
     param_distributions,
     scoring="balanced_accuracy",
     n_iter=5,
-    n_jobs=4,
-    verbose=3,
-    cv=5,
+    n_jobs=2,
+    verbose=2,
 ).fit(X, y)
 print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
 frame = pd.DataFrame.from_dict(search.cv_results_)
@@ -162,11 +154,9 @@ print(
 
 print("classification_report of best estimator:")
 print(classification_report(y, search.best_estimator_.predict(X)))
+print(pd.DataFrame(search.cv_results_).sort_values("rank_test_score", ascending=True).to_markdown())
 
-print("confusion matrix:")
-print(confusion_matrix(y, search.best_estimator_.predict(X)))
-
-export = True
+export = False
 if export:
     prediction = search.best_estimator_.predict(X_test)
 

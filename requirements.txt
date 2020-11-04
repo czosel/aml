@@ -4,7 +4,11 @@ xgboost
 matplotlib
 scipy
 sklego
+lightgbm
+catboost
+tensorflow
 tabularize
 
 black
 flake8
+tabulate
