@@ -11,7 +11,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 batch_size = 10
 
 
-class AVAClassifier(BaseEstimator, ClassifierMixin):
+class OVOClassifier(BaseEstimator, ClassifierMixin):
     """An example of classifier"""
 
     def __init__(self, c1=None, c2=None, c3=None):

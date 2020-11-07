@@ -8,7 +8,7 @@ lightgbm
 catboost
 tensorflow
 tabularize
-
+seaborn
 black
 flake8
 tabulate

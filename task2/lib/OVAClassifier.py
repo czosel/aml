@@ -11,7 +11,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 batch_size = 10
 
 
-class MixedClassifier(BaseEstimator, ClassifierMixin):
+class OVAClassifier(BaseEstimator, ClassifierMixin):
     """An example of classifier"""
 
     def __init__(self, c1=None, c2=None, c3=None, c_tie=None):
@@ -33,15 +33,15 @@ class MixedClassifier(BaseEstimator, ClassifierMixin):
         use try/except blog with exceptions. This is just for short syntax.
         """
 
-        # predictors = [self.c1, self.c2, self.c3]
-        # for i in range(3):
-        #     y_new = y.copy()
-        #     y_new[y_new == i] = -1
-        #     y_new[y_new != -1] = 1
-        #     y_new[y_new == -1] = 0
-        #
-        #     predictors[i].fit(X, y_new)
-        #
+        predictors = [self.c1, self.c2, self.c3]
+        for i in range(3):
+            y_new = y.copy()
+            y_new[y_new == i] = -1
+            y_new[y_new != -1] = 1
+            y_new[y_new == -1] = 0
+
+            predictors[i].fit(X, y_new)
+
 
         self.c_tie.fit(X,y)
         return self
@@ -53,17 +53,34 @@ class MixedClassifier(BaseEstimator, ClassifierMixin):
         p3 = self.c3.predict(X)
         tie = self.c_tie.predict(X)
 
-        def agree(l1,l2,l3):
-            return l1+l2+l3 == 1
+        ag = 0.0
+        total = 0.0
+
+
+        def agree(l1, l2, l3):
+            return l1 + l2 + l3 == 2
+
+        for i in range(len(p3)):
+            if p1[i] + p2[i] + p3[i] == 2:
+                ag = ag + 1
+            total = total + 1
+
+
+        print("agreed ", ag / total)
 
         def to_discreet(l1,l2,l3):
-            return l2*1.0+l3*2.0
+            return (0 if l1 == 0 else (1 if l2 == 0 else 2))
 
-        # return [to_discreet(p1[i], p2[i], p3[i]) if agree(p1[i], p2[i], p3[i]) else tie[i] for i in range(len(p1))]
+        # for i in range(10):
+        #     print(p1[i], p2[i],p3[i])
+        #     print(to_discreet(p1[i], p2[i],p3[i]))
 
-        return y
+        return [to_discreet(p1[i], p2[i], p3[i]) if agree(p1[i], p2[i], p3[i]) else tie[i] for i in range(len(p1))]
+
+        # return y
 
     def score(self, X, y, sample_weight=None):
+        raise Exception()
         print(y.shape)
         print(np.argmax(self.predict(X), axis=1).shape)
         print(self.predict(X).shape)

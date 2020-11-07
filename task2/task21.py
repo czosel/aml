@@ -32,7 +32,8 @@ from lib.load import load_data
 from lib.ShallowNetClassifier import ShallowNetClassifier
 from lib.DeepNetClassifier import DeepNetClassifier
 from lib.WideAndDeepNetClassifier import WideAndDeepNetClassifier
-from lib.MixedClassifier import MixedClassifier
+from lib.OVAClassifier import OVAClassifier
+from lib.OVOClassifier import OVOClassifier
 from sklearn.linear_model import BayesianRidge
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.utils.fixes import loguniform
@@ -55,47 +56,13 @@ X, X_test, y = load_data()
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
-        # ("PCA", PCA(n_components=100, whiten=True)),
-        # ("KernelPCA", KernelPCA(n_components=100)),
-        # (
-        #     "target_svr",
-        #     TransformedTargetRegressor(regressor=SVR(), transformer=StandardScaler()),
-        # ),
-        # ("Custom", CustomClassifier()),
-        # ("SVC", SVC(class_weight="balanced")),
-        # ("LinearSVC", LinearSVC(class_weight="balanced")),
-        # ("NuSVC", NuSVC(class_weight="balanced")),
-        # ("GaussianNB", GaussianNB()),  # 0.61
-        # ("KNN", KNeighborsClassifier()),  # 0.55
-        # (
-        #     "kernel_ridge",
-        #     TransformedTargetRegressor(
-        #         regressor=KernelRidge(), transformer=StandardScaler()
-        #     ),
-        # ),
-        # ("knn", KNeighborsRegressor()),
-        # ("xgb", XGBClassifier(objective="binary:logistic")),
-        # ("LGBM", LGBMClassifier(n_jobs=-1, objective="binary"))
-        # ("CAT", CatBoostClassifier(loss_function='Logloss'))
-        # ("deep", DeepNetClassifier())
-        ("mixed", MixedClassifier())
+        ("ova", OVAClassifier())
+        # ("ovo", OVOClassifier())
     ],
     memory="cache",
 )
 
-
-for i in range(3):
-    print("Class ", i)
-    y_new = y.copy()
-    y_new[y_new == i] = -1
-    y_new[y_new != -1] = 1
-    y_new[y_new == -1] = 0
-
-    ones = np.count_nonzero(y_new)
-    zeros = len(y_new) - ones
-    print("Class ",i,":", zeros, ", Rest:", ones)
-
-    param_distributions = {
+param_distributions = {
         # "Custom__C": loguniform(1e-5, 1),
         # "LinearSVC__C": loguniform(1e-5, 1),
         # "LinearSVC__class_weight": [
@@ -156,30 +123,38 @@ for i in range(3):
 # 1: zeros/ones}],
         # "deep__pos_weight": [{0: (1 / zeros)*(zeros+ones)/2.0 ,
 # 1: (1 / ones)*(ones+zeros)/2.0}],
-        "mixed__c1": [LinearSVC(class_weight='balanced')],
-        "mixed__c2": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
-        "mixed__c3": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
-        "mixed__c_tie": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
+#         "ovo__c1": [LinearSVC(class_weight='balanced', C=0.0020053280137711875,  loss="hinge")],
+#         "ovo__c2": [SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf")],
+#         # "ova__c2": [LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.000243486)],
+#         "ovo__c3": [LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459)],
 
+    # OVA
+            "ova__c1": [LinearSVC(class_weight={0:2,1:1}, C=0.000891058,  loss="squared_hinge")],
+            # "ova__c2": [SVC(class_weight="balanced", C=1.1547940567988086, gamma='scale', kernel="rbf")],
+            "ova__c2": [LinearSVC(class_weight={0:1,1:20}, loss="squared_hinge", C=0.000243486)],
+            "ova__c3": [LinearSVC(class_weight={0:2,1:1}, loss="squared_hinge", C=0.000243486)],
+            "ova__c_tie": [OVOClassifier(c1=LinearSVC(class_weight='balanced', C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459))],
+    # "ova__c_tie": [LinearSVC(class_weight="balanced", C=0.0001, loss="hinge")],
+    # "ova__c_tie": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
 
-    }
+}
 
-    search = RandomizedSearchCV(
-        fitting,
-        param_distributions,
-        scoring="balanced_accuracy",
-        n_iter=20,
-        n_jobs=1,
-        verbose=0,
-    ).fit(X, y_new)
-    print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
-    frame = pd.DataFrame.from_dict(search.cv_results_).sort_values("rank_test_score", ascending=True)
-    print(
-        tabulate(
-            frame[["params", "mean_test_score", "std_test_score", "rank_test_score"]],
-            headers="keys",
-        )
+search = RandomizedSearchCV(
+    fitting,
+    param_distributions,
+    scoring="balanced_accuracy",
+    n_iter=20,
+    n_jobs=1,
+    verbose=0,
+).fit(X, y)
+print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
+frame = pd.DataFrame.from_dict(search.cv_results_).sort_values("rank_test_score", ascending=True)
+print(
+    tabulate(
+        frame[["params", "mean_test_score", "std_test_score", "rank_test_score"]],
+        headers="keys",
     )
+)
 
 print("classification_report of best estimator:")
 print(classification_report(y, search.best_estimator_.predict(X)))
