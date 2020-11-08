@@ -16,13 +16,23 @@ feat_cols = [ 'feature'+str(i) for i in range(X.shape[1]) ]
 df = pd.DataFrame(X,columns=feat_cols)
 df['y'] = y
 df['label'] = df['y'].apply(lambda i: str(i))
+test_df = pd.DataFrame(X_test,columns=feat_cols)
+test_df['y'] = 3.0
+test_df['label'] = test_df['y'].apply(lambda i: str(i))
 # df = df[df["y"] != 1]
 #
 pca = PCA(n_components=3)
 pca_result = pca.fit_transform(df[feat_cols].values)
+pca_test = pca.transform(X_test)
 df['pca-one'] = pca_result[:,0]
 df['pca-two'] = pca_result[:,1]
 df['pca-three'] = pca_result[:,2]
+test_df['pca-one'] = pca_test[:,0]
+test_df['pca-two'] = pca_test[:,1]
+test_df['pca-three'] = pca_test[:,2]
+
+
+
 print('Explained variation per principal component: {}'.format(pca.explained_variance_ratio_))
 
 ax = plt.figure(figsize=(16,10)).gca(projection='3d')
@@ -49,6 +59,14 @@ ax.scatter(
     # c=df[df["y"] == 0]["y"],
     # cmap='tab10',
     label="0"
+)
+ax.scatter(
+    xs=test_df["pca-one"],
+    ys=test_df["pca-two"],
+    zs=test_df["pca-three"],
+    # c=df[df["y"] == 0]["y"],
+    # cmap='tab10',
+    label="test"
 )
 # ax.scatter(
 #     xs=df[df["y"] == 2]["pca-one"],

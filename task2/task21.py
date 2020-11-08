@@ -34,6 +34,7 @@ from lib.DeepNetClassifier import DeepNetClassifier
 from lib.WideAndDeepNetClassifier import WideAndDeepNetClassifier
 from lib.OVAClassifier import OVAClassifier
 from lib.OVOClassifier import OVOClassifier
+from lib.HardClusterClassifier import HardClusterClassifier
 from sklearn.linear_model import BayesianRidge
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.utils.fixes import loguniform
@@ -56,8 +57,9 @@ X, X_test, y = load_data()
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
-        ("ova", OVAClassifier())
-        # ("ovo", OVOClassifier())
+        # ("ova", OVAClassifier())
+        # ("ovo", OVOClassifier()),
+        ("hcluster", HardClusterClassifier(all_X = np.concatenate((X,X_test))))
     ],
     memory="cache",
 )
@@ -129,13 +131,33 @@ param_distributions = {
 #         "ovo__c3": [LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459)],
 
     # OVA
-            "ova__c1": [LinearSVC(class_weight={0:2,1:1}, C=0.000891058,  loss="squared_hinge")],
-            # "ova__c2": [SVC(class_weight="balanced", C=1.1547940567988086, gamma='scale', kernel="rbf")],
-            "ova__c2": [LinearSVC(class_weight={0:1,1:20}, loss="squared_hinge", C=0.000243486)],
-            "ova__c3": [LinearSVC(class_weight={0:2,1:1}, loss="squared_hinge", C=0.000243486)],
-            "ova__c_tie": [OVOClassifier(c1=LinearSVC(class_weight='balanced', C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459))],
+    #         "ova__c1": [LinearSVC(class_weight={0:2,1:1}, C=0.000891058,  loss="squared_hinge")],
+    #         # "ova__c2": [SVC(class_weight="balanced", C=1.1547940567988086, gamma='scale', kernel="rbf")],
+    #         "ova__c2": [LinearSVC(class_weight={0:1,1:20}, loss="squared_hinge", C=0.000243486)],
+    #         "ova__c3": [LinearSVC(class_weight={0:2,1:1}, loss="squared_hinge", C=0.000243486)],
+    #         "ova__c_tie": [OVOClassifier(c1=LinearSVC(class_weight='balanced', C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459))],
     # "ova__c_tie": [LinearSVC(class_weight="balanced", C=0.0001, loss="hinge")],
     # "ova__c_tie": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
+    # "hcluster__classifiers":[[LinearSVC(class_weight="balanced", C=0.0001, loss="hinge"), LinearSVC(class_weight="balanced", C=0.0001, loss="hinge"),LinearSVC(class_weight="balanced", C=0.0001, loss="hinge")]],
+    # "hcluster__n_clusters": [3]
+    "hcluster__classifiers": [[OVOClassifier(c1=LinearSVC(class_weight={0:6,1:1}, C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight={0:1,1:1}, C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight={0:6,1:1}, loss="squared_hinge", C=0.0005165696988129459)),
+                               OVOClassifier(c1=LinearSVC(class_weight={0:6,1:1}, C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight={0:1,1:1}, C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight={0:6,1:1}, loss="squared_hinge", C=0.0005165696988129459)),
+                          OVOClassifier(c1=LinearSVC(class_weight={0:6,1:1}, C=0.0020053280137711875,  loss="hinge"), c2=SVC(class_weight={0:1,1:1}, C=1.2781191419905644, kernel="rbf"), c3=LinearSVC(class_weight={0:6,1:1}, loss="squared_hinge", C=0.0005165696988129459))]],
+    # "hcluster__classifiers": [[OVOClassifier(
+    #                                 c1=LinearSVC(class_weight="balanced", C=0.0020053280137711875, loss="hinge"),
+    #                                 c2=SVC(class_weight="balanced", C=1.278119 1419905644, kernel="rbf"),
+    #                                 c3=LinearSVC(class_weight="balanced", loss="squared_hinge", C=0.0005165696988129459)),
+    #                            OVOClassifier(
+    #                                c1=LinearSVC(class_weight="balanced", C=0.0020053280137711875, loss="hinge"),
+    #                                c2=SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf"),
+    #                                c3=LinearSVC(class_weight="balanced", loss="squared_hinge",
+    #                                             C=0.0005165696988129459)),
+    #                            OVOClassifier(
+    #                                c1=LinearSVC(class_weight="balanced", C=0.0020053280137711875, loss="hinge"),
+    #                                c2=SVC(class_weight="balanced", C=1.2781191419905644, kernel="rbf"),
+    #                                c3=LinearSVC(class_weight="balanced", loss="squared_hinge",
+    #                                             C=0.0005165696988129459))]],
+"hcluster__n_clusters": [3]
 
 }
 
