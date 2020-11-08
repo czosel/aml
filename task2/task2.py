@@ -29,15 +29,16 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.compose import TransformedTargetRegressor
 from xgboost import XGBRegressor, XGBClassifier
 from lib.load import load_data
-from lib.ShallowNetClassifier import ShallowNetClassifier
-from lib.DeepNetClassifier import DeepNetClassifier
-from lib.WideAndDeepNetClassifier import WideAndDeepNetClassifier
-from lib.MixedClassifier import MixedClassifier
+
+# from lib.ShallowNetClassifier import ShallowNetClassifier
+# from lib.DeepNetClassifier import DeepNetClassifier
+# from lib.WideAndDeepNetClassifier import WideAndDeepNetClassifier
+# from lib.MixedClassifier import MixedClassifier
 from sklearn.linear_model import BayesianRidge
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.utils.fixes import loguniform
 from catboost import CatBoostClassifier
-from  sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 from lightgbm import LGBMClassifier
 
@@ -94,7 +95,7 @@ for i in range(3):
 
     ones = np.count_nonzero(y_new)
     zeros = len(y_new) - ones
-    print("Class ",i,":", zeros, ", Rest:", ones)
+    print("Class ", i, ":", zeros, ", Rest:", ones)
 
     param_distributions = {
         # "Custom__C": loguniform(1e-5, 1),
@@ -153,16 +154,14 @@ for i in range(3):
         # "deep__activation": ["swish", "tanh"], #["tanh", "relu", "swish"],
         # "deep__nfirst": [2,4,8], #[32,64,128,264],
         # "deep__regularization": [None], #["dropout", None],
-#         "deep__pos_weight": [{0: ones/(zeros+ones) ,
-# 1: zeros/(ones+zeros)},{0: ones/zeros ,
-# 1: zeros/ones}],
-#         "deep__pos_weight": [{0: 0.875, 1: 0.125}], #[{0: (1 / zeros)*(zeros+ones)/2.0 ,  1: (1 / ones)*(ones+zeros)/2.0}],
-#         "mixed__c1": [LinearSVC(class_weight='balanced')],
-#         "mixed__c2": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
-#         "mixed__c3": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
-#         "mixed__c_tie": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
-
-
+        #         "deep__pos_weight": [{0: ones/(zeros+ones) ,
+        # 1: zeros/(ones+zeros)},{0: ones/zeros ,
+        # 1: zeros/ones}],
+        #         "deep__pos_weight": [{0: 0.875, 1: 0.125}], #[{0: (1 / zeros)*(zeros+ones)/2.0 ,  1: (1 / ones)*(ones+zeros)/2.0}],
+        #         "mixed__c1": [LinearSVC(class_weight='balanced')],
+        #         "mixed__c2": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
+        #         "mixed__c3": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
+        #         "mixed__c_tie": [SVC(class_weight="balanced", C=0.01, gamma='auto', kernel="rbf")],
     }
 
     search = RandomizedSearchCV(
@@ -174,7 +173,9 @@ for i in range(3):
         verbose=0,
     ).fit(X, y_new)
     print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
-    frame = pd.DataFrame.from_dict(search.cv_results_).sort_values("rank_test_score", ascending=True)
+    frame = pd.DataFrame.from_dict(search.cv_results_).sort_values(
+        "rank_test_score", ascending=True
+    )
     print(
         tabulate(
             frame[["params", "mean_test_score", "std_test_score", "rank_test_score"]],
@@ -184,7 +185,11 @@ for i in range(3):
 
 print("classification_report of best estimator:")
 print(classification_report(y, search.best_estimator_.predict(X)))
-print(pd.DataFrame(search.cv_results_).sort_values("rank_test_score", ascending=True).to_markdown())
+print(
+    pd.DataFrame(search.cv_results_)
+    .sort_values("rank_test_score", ascending=True)
+    .to_markdown()
+)
 
 export = False
 if export:
