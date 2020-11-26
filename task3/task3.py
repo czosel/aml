@@ -11,15 +11,6 @@ import matplotlib.pyplot as plt
 X, X_test, y = load_data()
 
 
-features = []
-
-plot = False
-print(y[0:40])
-tpls0 = []
-tpls1 = []
-tpls2 = []
-tpls3 = []
-
 
 def calc_median(series):
     return np.array([np.median(series[:, k]) for k in range(180)])
@@ -53,89 +44,100 @@ def find_minimum(signal, peak_index, max_span=50, direction="left"):
 
     return i
 
+def process(X):
+    features = []
 
-for i in range(len(X)):
-    _sample = X[i]
-    print(f"sample {i}: Class {y[i]}")
-    sample = _sample[~np.isnan(_sample)]
+    plot = False
+    print(y[0:40])
+    tpls0 = []
+    tpls1 = []
+    tpls2 = []
+    tpls3 = []
 
-    res = ecg(sample, sampling_rate=300, show=False)
+    for i in range(len(X)):
+        _sample = X[i]
+        print(f"sample {i}: Class {y[i]}")
+        sample = _sample[~np.isnan(_sample)]
 
-    # FT
-    # N = len(sample) / 2
-    # T = 1.0 / 300.0
+        res = ecg(sample, sampling_rate=300, show=False)
 
-    # xf = np.linspace(0.0, 1.0 / (2 * T), int(N // 2))
-    # yf = fft(res["filtered"])
-    # plt.plot(xf, 2.0 / N * np.abs(yf[0 : int(N // 2)]))
-    # plt.show()
+        # FT
+        # N = len(sample) / 2
+        # T = 1.0 / 300.0
 
-    median = calc_median(res["templates"])
-    # if (np.argmin(median) < 60) and not 0.7*np.max(median) > abs(np.min(median)):
-    if (
-        not np.max(median[55:65]) == np.max(median)
-        or (np.max(median) < -0.8 * np.min(median))
-        or (
-            not 0.75 * np.max(median) > -np.min(median)
-            and (
-                np.argmin(median) < 60
-                and (
-                    np.min(median[:60]) < 1.5 * min(median[60:])
-                    or np.min(median[60:]) < 1.5 * min(median[:60])
-                )
-            )
-        )
-    ):
-        # and ((np.min(median) < 1.2 * np.min(
-        #     median[[i for i in range(len(median)) if i != np.argmin(median)]])) or np.max(median[45:48]) > -np.min(median[65:75])):
-        # if np.min(median[45:55]) < np.min(median[0:45]) and np.min(median[65:80]) < np.min(median[80:]) and np.max(median[55:65]) == np.max(median):
-        # if np.max(median) < abs(np.min(median)) and np.min(median[50:55]) < np.min(median[60:65]):
-        # if abs(np.mean(median)) > abs(np.median(median)):
-        res = ecg(-sample, sampling_rate=300, show=False)
+        # xf = np.linspace(0.0, 1.0 / (2 * T), int(N // 2))
+        # yf = fft(res["filtered"])
+        # plt.plot(xf, 2.0 / N * np.abs(yf[0 : int(N // 2)]))
+        # plt.show()
 
         median = calc_median(res["templates"])
-        # neg = True
+        # if (np.argmin(median) < 60) and not 0.7*np.max(median) > abs(np.min(median)):
+        if (
+            not np.max(median[55:65]) == np.max(median)
+            or (np.max(median) < -0.8 * np.min(median))
+            or (
+                not 0.75 * np.max(median) > -np.min(median)
+                and (
+                    np.argmin(median) < 60
+                    and (
+                        np.min(median[:60]) < 1.5 * min(median[60:])
+                        or np.min(median[60:]) < 1.5 * min(median[:60])
+                    )
+                )
+            )
+        ):
+            # and ((np.min(median) < 1.2 * np.min(
+            #     median[[i for i in range(len(median)) if i != np.argmin(median)]])) or np.max(median[45:48]) > -np.min(median[65:75])):
+            # if np.min(median[45:55]) < np.min(median[0:45]) and np.min(median[65:80]) < np.min(median[80:]) and np.max(median[55:65]) == np.max(median):
+            # if np.max(median) < abs(np.min(median)) and np.min(median[50:55]) < np.min(median[60:65]):
+            # if abs(np.mean(median)) > abs(np.median(median)):
+            res = ecg(-sample, sampling_rate=300, show=False)
 
-        # res["templates"][j] = (res["templates"][j]-mean)/std
+            median = calc_median(res["templates"])
+            # neg = True
 
-    median = (median) / median.std()
-    if i < 40 and plot:
-        # plt.plot(res["templates"][j])
-        plt.title(y[i])
-        plt.plot(median)
-        plt.show()
+            # res["templates"][j] = (res["templates"][j]-mean)/std
 
-    # if not neg:
-    if y[i] == 0:
-        tpls0.append(median)
-    if y[i] == 1:
-        tpls1.append(median)
-    if y[i] == 2:
-        tpls2.append(median)
-    if y[i] == 3:
-        tpls3.append(median)
+        median = (median) / median.std()
+        if i < 40 and plot:
+            # plt.plot(res["templates"][j])
+            plt.title(y[i])
+            plt.plot(median)
+            plt.show()
 
-    # beat characterization
-    heart_rate = res["heart_rate"]
+        # if not neg:
+        if y[i] == 0:
+            tpls0.append(median)
+        if y[i] == 1:
+            tpls1.append(median)
+        if y[i] == 2:
+            tpls2.append(median)
+        if y[i] == 3:
+            tpls3.append(median)
 
-    filtered = res["filtered"]
-    r_peaks = res["rpeaks"]
-    q_peaks = np.array([find_minimum(filtered, r) for r in r_peaks])
-    s_peaks = np.array([find_minimum(filtered, r, direction="right") for r in r_peaks])
+        # beat characterization
+        heart_rate = res["heart_rate"]
 
-    r_amplitude = filtered[r_peaks]
-    q_amplitude = filtered[q_peaks]
-    s_amplitude = filtered[s_peaks]
+        filtered = res["filtered"]
+        r_peaks = res["rpeaks"]
+        q_peaks = np.array([find_minimum(filtered, r) for r in r_peaks])
+        s_peaks = np.array([find_minimum(filtered, r, direction="right") for r in r_peaks])
 
-    qrs_duration = s_peaks - q_peaks
+        r_amplitude = filtered[r_peaks]
+        q_amplitude = filtered[q_peaks]
+        s_amplitude = filtered[s_peaks]
 
-    # print(templates.shape, median.shape)
-    features.append(
-        build_features(heart_rate, r_amplitude, q_amplitude, s_amplitude, qrs_duration)
-    )
+        qrs_duration = s_peaks - q_peaks
+
+        # print(templates.shape, median.shape)
+        features.append(
+            build_features(heart_rate, r_amplitude, q_amplitude, s_amplitude, qrs_duration)
+        )
 
 
-features = np.array(features)
+    features = np.array(features)
+    print(f"computed features {features.shape}")
+    return features
 # scatter = plt.scatter(features[:, 0], features[:, 2], c=y, label=y)
 # plt.legend(*scatter.legend_elements())
 # plt.xlabel("median heart rate")
@@ -157,7 +159,8 @@ features = np.array(features)
 # plt.plot(tpls3)
 # plt.show()
 
-print(f"computed features {features.shape}")
 
-np.savetxt("features/features.csv", features, delimiter=",")
+np.savetxt("features/cache/train_X.csv", process(X), delimiter=",")
+np.savetxt("features/cache/train_y.csv", y, delimiter=",")
+np.savetxt("features/cache/test_X.csv", process(X_test), delimiter=",")
 print("wrote features to features/features.csv")
