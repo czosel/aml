@@ -24,6 +24,7 @@ def calc_median(series):
 
 for i in range(len(X)):
     _sample = X[i]
+    print(f"sample {i}: Class {y[i]}")
     sample = _sample[~np.isnan(_sample)]
     res = ecg(sample, sampling_rate=300, show=False)
 
