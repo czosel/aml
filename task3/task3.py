@@ -10,15 +10,17 @@ X, X_test, y = load_data(limit=20000)
 
 features = []
 
-plot=False
+plot = False
 print(y[0:40])
 tpls0 = []
 tpls1 = []
 tpls2 = []
 tpls3 = []
 
+
 def calc_median(series):
     return np.array([np.median(series[:, k]) for k in range(180)])
+
 
 for i in range(len(X)):
     _sample = X[i]
@@ -27,12 +29,25 @@ for i in range(len(X)):
 
     median = calc_median(res["templates"])
     # if (np.argmin(median) < 60) and not 0.7*np.max(median) > abs(np.min(median)):
-    if not np.max(median[55:65]) == np.max(median) or (np.max(median) < -0.8*np.min(median)) or (not 0.75 * np.max(median) > -np.min(median) and (np.argmin(median) < 60 and (np.min(median[:60]) < 1.5 * min(median[60:]) or np.min(median[60:]) < 1.5 * min(median[:60])))):
+    if (
+        not np.max(median[55:65]) == np.max(median)
+        or (np.max(median) < -0.8 * np.min(median))
+        or (
+            not 0.75 * np.max(median) > -np.min(median)
+            and (
+                np.argmin(median) < 60
+                and (
+                    np.min(median[:60]) < 1.5 * min(median[60:])
+                    or np.min(median[60:]) < 1.5 * min(median[:60])
+                )
+            )
+        )
+    ):
         # and ((np.min(median) < 1.2 * np.min(
         #     median[[i for i in range(len(median)) if i != np.argmin(median)]])) or np.max(median[45:48]) > -np.min(median[65:75])):
         # if np.min(median[45:55]) < np.min(median[0:45]) and np.min(median[65:80]) < np.min(median[80:]) and np.max(median[55:65]) == np.max(median):
-    # if np.max(median) < abs(np.min(median)) and np.min(median[50:55]) < np.min(median[60:65]):
-    # if abs(np.mean(median)) > abs(np.median(median)):
+        # if np.max(median) < abs(np.min(median)) and np.min(median[50:55]) < np.min(median[60:65]):
+        # if abs(np.mean(median)) > abs(np.median(median)):
         res = ecg(-sample, sampling_rate=300, show=False)
 
         median = calc_median(res["templates"])
@@ -40,8 +55,7 @@ for i in range(len(X)):
 
         # res["templates"][j] = (res["templates"][j]-mean)/std
 
-
-    median = (median)/median.std()
+    median = (median) / median.std()
     if i < 40 and plot:
         # plt.plot(res["templates"][j])
         plt.title(y[i])
@@ -63,10 +77,10 @@ for i in range(len(X)):
     # print(templates.shape, median.shape)
     features.append([np.median(heart_rate), np.average(heart_rate), np.var(heart_rate)])
 
-tpls0 = np.swapaxes(np.array(tpls0), 0,1)
-tpls1 = np.swapaxes(np.array(tpls1), 0,1)
-tpls2 = np.swapaxes(np.array(tpls2), 0,1)
-tpls3 = np.swapaxes(np.array(tpls3), 0,1)
+tpls0 = np.swapaxes(np.array(tpls0), 0, 1)
+tpls1 = np.swapaxes(np.array(tpls1), 0, 1)
+tpls2 = np.swapaxes(np.array(tpls2), 0, 1)
+tpls3 = np.swapaxes(np.array(tpls3), 0, 1)
 print(np.array(tpls0).shape)
 plt.plot(tpls0)
 plt.show()
