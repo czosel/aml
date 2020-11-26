@@ -1,11 +1,12 @@
 import numpy as np
+from scipy.fft import fft
 
 from biosppy.signals.ecg import ecg
 from lib.load import load_data
 import matplotlib.pyplot as plt
 
 # just for development: limit amount of samples for quick iterations
-X, X_test, y = load_data(limit=20000)
+X, X_test, y = load_data(limit=40)
 
 
 features = []
@@ -26,7 +27,17 @@ for i in range(len(X)):
     _sample = X[i]
     print(f"sample {i}: Class {y[i]}")
     sample = _sample[~np.isnan(_sample)]
+
     res = ecg(sample, sampling_rate=300, show=False)
+
+    # FT
+    N = len(sample) / 2
+    T = 1.0 / 300.0
+
+    xf = np.linspace(0.0, 1.0 / (2 * T), int(N // 2))
+    yf = fft(res["filtered"])
+    plt.plot(xf, 2.0 / N * np.abs(yf[0 : int(N // 2)]))
+    plt.show()
 
     median = calc_median(res["templates"])
     # if (np.argmin(median) < 60) and not 0.7*np.max(median) > abs(np.min(median)):
