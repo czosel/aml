@@ -4,12 +4,13 @@ from scipy.stats import skew
 from itertools import chain
 
 from biosppy.signals.ecg import ecg
+from pyhrv.hrv import hrv
+
 from lib.load import load_data
 import matplotlib.pyplot as plt
 
 # just for development: limit amount of samples for quick iterations
 X, X_test, y = load_data()
-
 
 
 def calc_median(series):
@@ -60,7 +61,7 @@ def process(X):
         print(f"sample {i}: Class {y[i]}")
         sample = _sample[~np.isnan(_sample)]
 
-        res = ecg(sample, sampling_rate=300, show=False)
+        res = ecg(signal=sample, sampling_rate=300, show=False)
 
         # FT
         # N = len(sample) / 2
@@ -132,7 +133,12 @@ def process(X):
 
         qrs_duration = s_peaks - q_peaks
 
-        hrv_res = hrv(rpeaks=res["rpeaks"], kwargs_ar={"order": 8}, show=False)
+        hrv_res = hrv(
+            rpeaks=res["rpeaks"],
+            plot_tachogram=False,
+            kwargs_ar={"order": 8},
+            show=False,
+        )
 
         # print(templates.shape, median.shape)
         features.append(
