@@ -9,6 +9,7 @@ catboost
 tensorflow
 tabulate
 biosppy
+pyhrv
 
 black
 flake8

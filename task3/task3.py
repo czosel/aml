@@ -44,6 +44,7 @@ def find_minimum(signal, peak_index, max_span=50, direction="left"):
 
     return i
 
+
 def process(X):
     features = []
 
@@ -121,7 +122,9 @@ def process(X):
         filtered = res["filtered"]
         r_peaks = res["rpeaks"]
         q_peaks = np.array([find_minimum(filtered, r) for r in r_peaks])
-        s_peaks = np.array([find_minimum(filtered, r, direction="right") for r in r_peaks])
+        s_peaks = np.array(
+            [find_minimum(filtered, r, direction="right") for r in r_peaks]
+        )
 
         r_amplitude = filtered[r_peaks]
         q_amplitude = filtered[q_peaks]
@@ -129,15 +132,51 @@ def process(X):
 
         qrs_duration = s_peaks - q_peaks
 
+        hrv_res = hrv(rpeaks=res["rpeaks"], kwargs_ar={"order": 8}, show=False)
+
         # print(templates.shape, median.shape)
         features.append(
-            build_features(heart_rate, r_amplitude, q_amplitude, s_amplitude, qrs_duration)
+            build_features(q_amplitude, s_amplitude, qrs_duration)
+            + [
+                hrv_res["nni_mean"],
+                hrv_res["nni_min"],
+                hrv_res["nni_max"],
+                hrv_res["nni_diff_mean"],
+                hrv_res["nni_diff_min"],
+                hrv_res["nni_diff_max"],
+                hrv_res["hr_mean"],
+                hrv_res["hr_min"],
+                hrv_res["hr_max"],
+                hrv_res["hr_std"],
+                hrv_res["sdnn"],
+                hrv_res["sdann"],
+                hrv_res["rmssd"],
+                hrv_res["sdsd"],
+                hrv_res["pnn50"],
+                hrv_res["pnn20"],
+                hrv_res["tri_index"],
+                hrv_res["ar_peak"][0],
+                hrv_res["ar_peak"][1],
+                hrv_res["ar_peak"][2],
+                hrv_res["ar_abs"][0],
+                hrv_res["ar_abs"][1],
+                hrv_res["ar_abs"][2],
+                hrv_res["ar_rel"][0],
+                hrv_res["ar_rel"][1],
+                hrv_res["ar_rel"][2],
+                hrv_res["ar_ratio"],
+                hrv_res["ar_total"],
+                hrv_res["sd1"],
+                hrv_res["sd2"],
+                hrv_res["ellipse_area"],
+            ]
         )
-
 
     features = np.array(features)
     print(f"computed features {features.shape}")
     return features
+
+
 # scatter = plt.scatter(features[:, 0], features[:, 2], c=y, label=y)
 # plt.legend(*scatter.legend_elements())
 # plt.xlabel("median heart rate")
@@ -163,4 +202,4 @@ def process(X):
 np.savetxt("features/cache/train_X.csv", process(X), delimiter=",")
 np.savetxt("features/cache/train_y.csv", y, delimiter=",")
 np.savetxt("features/cache/test_X.csv", process(X_test), delimiter=",")
-print("wrote features to features/features.csv")
+print("wrote features")
