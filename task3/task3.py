@@ -4,7 +4,7 @@ from scipy.stats import skew
 from itertools import chain
 
 from biosppy.signals.ecg import ecg
-from pyhrv.hrv import hrv
+from pyhrv import hrv, time_domain, frequency_domain
 
 from lib.load import load_data
 import matplotlib.pyplot as plt
@@ -121,61 +121,49 @@ def process(X):
         heart_rate = res["heart_rate"]
 
         filtered = res["filtered"]
-        r_peaks = res["rpeaks"]
-        q_peaks = np.array([find_minimum(filtered, r) for r in r_peaks])
-        s_peaks = np.array(
-            [find_minimum(filtered, r, direction="right") for r in r_peaks]
+        rpeaks = res["rpeaks"]
+        # peaks in seconds, required by pyhrv
+        rpeaks_s = res["ts"][rpeaks]
+        qpeaks = np.array([find_minimum(filtered, r) for r in rpeaks])
+        speaks = np.array(
+            [find_minimum(filtered, r, direction="right") for r in rpeaks]
         )
 
-        r_amplitude = filtered[r_peaks]
-        q_amplitude = filtered[q_peaks]
-        s_amplitude = filtered[s_peaks]
+        r_amplitude = filtered[rpeaks]
+        q_amplitude = filtered[qpeaks]
+        s_amplitude = filtered[speaks]
 
-        qrs_duration = s_peaks - q_peaks
+        qrs_duration = speaks - qpeaks
 
-        hrv_res = hrv(
-            rpeaks=res["rpeaks"],
-            plot_tachogram=False,
-            kwargs_ar={"order": 8},
-            show=False,
-        )
+        # hrv_res = hrv(
+        #    rpeaks=rpeaks_s,
+        #    plot_tachogram=False,
+        #    kwargs_ar={"order": 8},
+        #    show=False,
+        # )
+        nni = time_domain.nni_parameters(rpeaks=rpeaks_s)
+        nni_diff = time_domain.nni_differences_parameters(rpeaks=rpeaks_s)
+        sdnn = time_domain.sdnn(rpeaks=rpeaks_s)
+        sdsd = time_domain.sdsd(rpeaks=rpeaks_s)
+        tri_index = time_domain.triangular_index(rpeaks=rpeaks_s, plot=False)
 
+        welch_psd = frequency_domain.welch_psd(rpeaks=rpeaks_s, mode="dev")[0]
         # print(templates.shape, median.shape)
         features.append(
-            build_features(q_amplitude, s_amplitude, qrs_duration)
+            build_features(q_amplitude, r_amplitude, s_amplitude, qrs_duration)
             + [
-                hrv_res["nni_mean"],
-                hrv_res["nni_min"],
-                hrv_res["nni_max"],
-                hrv_res["nni_diff_mean"],
-                hrv_res["nni_diff_min"],
-                hrv_res["nni_diff_max"],
-                hrv_res["hr_mean"],
-                hrv_res["hr_min"],
-                hrv_res["hr_max"],
-                hrv_res["hr_std"],
-                hrv_res["sdnn"],
-                hrv_res["sdann"],
-                hrv_res["rmssd"],
-                hrv_res["sdsd"],
-                hrv_res["pnn50"],
-                hrv_res["pnn20"],
-                hrv_res["tri_index"],
-                hrv_res["ar_peak"][0],
-                hrv_res["ar_peak"][1],
-                hrv_res["ar_peak"][2],
-                hrv_res["ar_abs"][0],
-                hrv_res["ar_abs"][1],
-                hrv_res["ar_abs"][2],
-                hrv_res["ar_rel"][0],
-                hrv_res["ar_rel"][1],
-                hrv_res["ar_rel"][2],
-                hrv_res["ar_ratio"],
-                hrv_res["ar_total"],
-                hrv_res["sd1"],
-                hrv_res["sd2"],
-                hrv_res["ellipse_area"],
+                nni["nni_mean"],
+                nni["nni_min"],
+                nni["nni_max"],
+                nni_diff["nni_diff_mean"],
+                nni_diff["nni_diff_min"],
+                nni_diff["nni_diff_max"],
+                sdnn["sdnn"],
+                sdsd["sdsd"],
+                tri_index["tri_index"],
+                welch_psd["fft_ratio"],
             ]
+            + list(welch_psd["fft_peak"] + welch_psd["fft_abs"] + welch_psd["fft_norm"])
         )
 
     features = np.array(features)
