@@ -56,6 +56,7 @@ def process(X):
     tpls2 = []
     tpls3 = []
 
+    shp = None
     for i in range(len(X)):
         _sample = X[i]
         print(f"sample {i}: Class {y[i]}")
@@ -133,50 +134,56 @@ def process(X):
 
         qrs_duration = s_peaks - q_peaks
 
-        hrv_res = hrv(
-            rpeaks=res["rpeaks"],
-            plot_tachogram=False,
-            kwargs_ar={"order": 8},
-            show=False,
-        )
+        try:
+            hrv_res = hrv(
+                rpeaks=res["rpeaks"],
+                plot_tachogram=False,
+                kwargs_ar={"order": 8},
+                show=False,
+            )
+            hrv_feat = [
+                    hrv_res["nni_mean"],
+                    hrv_res["nni_min"],
+                    hrv_res["nni_max"],
+                    hrv_res["nni_diff_mean"],
+                    hrv_res["nni_diff_min"],
+                    hrv_res["nni_diff_max"],
+                    hrv_res["hr_mean"],
+                    hrv_res["hr_min"],
+                    hrv_res["hr_max"],
+                    hrv_res["hr_std"],
+                    hrv_res["sdnn"],
+                    hrv_res["sdann"],
+                    hrv_res["rmssd"],
+                    hrv_res["sdsd"],
+                    hrv_res["pnn50"],
+                    hrv_res["pnn20"],
+                    hrv_res["tri_index"],
+                    hrv_res["ar_peak"][0],
+                    hrv_res["ar_peak"][1],
+                    hrv_res["ar_peak"][2],
+                    hrv_res["ar_abs"][0],
+                    hrv_res["ar_abs"][1],
+                    hrv_res["ar_abs"][2],
+                    hrv_res["ar_rel"][0],
+                    hrv_res["ar_rel"][1],
+                    hrv_res["ar_rel"][2],
+                    hrv_res["ar_ratio"],
+                    hrv_res["ar_total"],
+                    hrv_res["sd1"],
+                    hrv_res["sd2"],
+                    hrv_res["ellipse_area"],
+                ]
+            shp = len(hrv_feat)
+        except:
+            hrv_feat = [0 for i in range(shp)]
 
-        # print(templates.shape, median.shape)
         features.append(
             build_features(q_amplitude, s_amplitude, qrs_duration)
-            + [
-                hrv_res["nni_mean"],
-                hrv_res["nni_min"],
-                hrv_res["nni_max"],
-                hrv_res["nni_diff_mean"],
-                hrv_res["nni_diff_min"],
-                hrv_res["nni_diff_max"],
-                hrv_res["hr_mean"],
-                hrv_res["hr_min"],
-                hrv_res["hr_max"],
-                hrv_res["hr_std"],
-                hrv_res["sdnn"],
-                hrv_res["sdann"],
-                hrv_res["rmssd"],
-                hrv_res["sdsd"],
-                hrv_res["pnn50"],
-                hrv_res["pnn20"],
-                hrv_res["tri_index"],
-                hrv_res["ar_peak"][0],
-                hrv_res["ar_peak"][1],
-                hrv_res["ar_peak"][2],
-                hrv_res["ar_abs"][0],
-                hrv_res["ar_abs"][1],
-                hrv_res["ar_abs"][2],
-                hrv_res["ar_rel"][0],
-                hrv_res["ar_rel"][1],
-                hrv_res["ar_rel"][2],
-                hrv_res["ar_ratio"],
-                hrv_res["ar_total"],
-                hrv_res["sd1"],
-                hrv_res["sd2"],
-                hrv_res["ellipse_area"],
-            ]
+            + hrv_feat
         )
+        # print(templates.shape, median.shape)
+
 
     features = np.array(features)
     print(f"computed features {features.shape}")
