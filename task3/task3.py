@@ -56,6 +56,7 @@ def process(X):
     tpls2 = []
     tpls3 = []
 
+    shp = None
     for i in range(len(X)):
         _sample = X[i]
         print(f"sample {i}: Class {y[i]}")
@@ -165,6 +166,7 @@ def process(X):
             ]
             + list(welch_psd["fft_peak"] + welch_psd["fft_abs"] + welch_psd["fft_norm"])
         )
+        # print(templates.shape, median.shape)
 
     features = np.array(features)
     print(f"computed features {features.shape}")
