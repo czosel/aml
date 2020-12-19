@@ -37,6 +37,7 @@ def process(X):
     return features
 
 
+print(process(X).shape)
 np.savetxt("features/cache/train_X.csv", process(X), delimiter=",")
 np.savetxt("features/cache/train_y.csv", y, delimiter=",")
 np.savetxt("features/cache/test_X.csv", process(X_test), delimiter=",")
