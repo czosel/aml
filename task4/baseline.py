@@ -14,6 +14,7 @@ from sklearn.preprocessing import (
     QuantileTransformer,
     PowerTransformer,
 )
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.model_selection import cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.experimental import enable_iterative_imputer
@@ -142,14 +143,15 @@ print(train_X.shape, train_y.shape)
 fitting = Pipeline(
     [
         ("scale", RobustScaler()),
-        # ("PCA", PCA(n_components=100, whiten=True)),
+        ("PCA", PCA(n_components=100, whiten=True)),
+        # ("KMeans", MiniBatchKMeans(n_clusters=100)),
         # ("KernelPCA", KernelPCA(n_components=100)),
         # (
         #     "target_svr",
         #     TransformedTargetRegressor(regressor=SVR(), transformer=StandardScaler()),
         # ),
         # ("Custom", CustomClassifier()),
-        # ("SVC", SVC(class_weight="balanced", cache_size=2000)),
+        ("SVC", SVC(cache_size=2000)),
         # ("NuSVC", NuSVC(class_weight="balanced", cache_size=2000)),
         # ("GaussianNB", GaussianNB()),  # 0.61
         # ("KNN", KNeighborsClassifier()),  # 0.55
@@ -161,7 +163,7 @@ fitting = Pipeline(
         # ),
         # ("knn", KNeighborsRegressor()),
         # ("xgb", XGBClassifier(objective="multi:softmax")),
-        ("LGBM", LGBMClassifier(n_jobs=-1, objective="multiclassova", num_class=3))
+        # ("LGBM", LGBMClassifier(n_jobs=-1, objective="multiclassova", num_class=3))
         # ("CAT", CatBoostClassifier(loss_function='MultiClass'))
         # ("deep", WideAndDeepNetClassifier())
     ],
@@ -183,9 +185,10 @@ param_distributions = {
     # "PCA__n_components": stats.randint(100, 400),
     # "KernelPCA__n_components": stats.randint(100, 500),
     # "KernelPCA__kernel": ["linear", "poly", "rbf", "cosine", "sigmoid"],
-    # "SVC__C": loguniform(1e-3, 1e1),
-    # "SVC__gamma": ["scale", "auto"],
-    # "SVC__kernel": ["rbf"],
+    "SVC__C": loguniform(1e-3, 1e1),
+    "SVC__gamma": ["scale", "auto"],
+    "SVC__kernel": ["rbf", "linear", "poly"],
+    "SVC__class_weight": [None, "balanced"],
     # "Stack__SVC1__C": loguniform(1e-5, 1e-3),
     # "Stack__SVC2__C": loguniform(1e-1, 10),
     # "NuSVC__nu": loguniform(1e-3, 0.3),
@@ -204,8 +207,8 @@ param_distributions = {
     # "xgb__n_estimators": [4, 10, 100, 500, 1000],
     # "xgb__max_depth": [2, 4, 6, 10],
     # "xgb__booster": ["gbtree", "gblinear"],
-    "LGBM__num_leaves": [80],#[5, 10, 40, 80, 120, 200],
-    "LGBM__min_data_in_leaf": [100],
+    # "LGBM__num_leaves": [80],#[5, 10, 40, 80, 120, 200],
+    # "LGBM__min_data_in_leaf": [100],
     # "CAT__class_weights": [[6, 1, 6]], #[[1,1,1], [6, 1, 6]],
     # "CAT__depth": [8], #[4,6,8,10,12],
     # 'CAT__iterations': [50], #[10,50,100],
@@ -224,14 +227,14 @@ param_distributions = {
     # "deep__weights": [[6.0,1.0,6.0],[5.0,1.0,5.0],[7.0,1.0,7.0]],
 }
 
-ppl = False
+ppl = True
 estm = None
 if ppl:
     search = RandomizedSearchCV(
         fitting,
         param_distributions,
         cv=fold_indices,
-        scoring="f1_micro",
+        scoring="balanced_accuracy",
         n_iter=20,
         n_jobs=1,
         verbose=2,
@@ -274,8 +277,8 @@ plt.show()
 #     .sort_values("rank_test_score", ascending=True)
 #     .to_markdown()
 # )
-plt.plot(train_y[0:200])
-plt.plot(y_pred[0:200])
+plt.plot(train_y[250:750], color="green")
+plt.plot(y_pred[250:750], color="orange")
 plt.show()
 
 export = True
