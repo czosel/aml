@@ -49,25 +49,46 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
 
-
-def windowed(X, n_subjects, winsize_forward=5, winsize_backward=5, is_y=False):
-    l = int(len(X)/3)
-    X1, X2, X3 = X[0:l], X[l:2*l], X[2*l:]
+def windowed(X, n_subjects, winsize_forward=5, winsize_backward=5):
+    l = int(len(X) / 3)
+    X1, X2, X3 = X[0:l], X[l : 2 * l], X[2 * l :]
     ret = []
-    if not is_y:
-        for X_ in [X1,X2,X3]:
-            ret.append(np.array([X_[i-winsize_backward:i+winsize_forward] for i in range(winsize_backward, len(X_)- winsize_forward)]))
-    else:
-        for X_ in [X1,X2,X3]:
-            ret.append(np.array([X_[i] for i in range(winsize_backward, len(X_)- winsize_forward)]))
+    for X_ in [X1, X2, X3]:
+        # repeat first and last samples such that every sample has all needed window
+        padded = np.concatenate(
+            (
+                np.tile(X_[0], (5, 1)),
+                X_,
+                np.tile(X_[-1], (5, 1)),
+            )
+        )
+        # flatten previous and following samples along with current sample
+        ret.append(
+            np.array(
+                [
+                    np.concatenate(padded[i - winsize_backward : i + winsize_forward])
+                    for i in range(winsize_backward, len(X_) + winsize_forward)
+                ]
+            )
+        )
     return np.concatenate(ret)
 
 
-train_X = windowed(np.loadtxt("features/cache/train_X.csv", delimiter=","), n_subjects=3)
-train_y = windowed(np.loadtxt("features/cache/train_y.csv", delimiter=","), n_subjects=3, is_y=True)
+train_X = windowed(
+    np.loadtxt("features/cache/train_X.csv", delimiter=","), n_subjects=3
+)
+train_y = np.loadtxt("features/cache/train_y.csv", delimiter=",")
 test_X = windowed(np.loadtxt("features/cache/test_X.csv", delimiter=","), n_subjects=2)
 
-fold_indices = tuple([(np.arange(i*int(len(train_X)/3), (i+1)*int(len(train_X)/3)),np.arange(i*int(len(train_X)/3), (i+1)*int(len(train_X)/3))) for i in [0,1,2]])
+fold_indices = tuple(
+    [
+        (
+            np.arange(i * int(len(train_X) / 3), (i + 1) * int(len(train_X) / 3)),
+            np.arange(i * int(len(train_X) / 3), (i + 1) * int(len(train_X) / 3)),
+        )
+        for i in [0, 1, 2]
+    ]
+)
 # for i in fold_indices:
 #     print(i.shape)
 print(train_X.shape, train_y.shape)
@@ -165,7 +186,7 @@ search = RandomizedSearchCV(
     n_iter=5,
     n_jobs=1,
     verbose=2,
-).fit(train_X.reshape((len(train_X), -1)), train_y.reshape((len(train_X), )))
+).fit(train_X, train_y)
 print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
 frame = pd.DataFrame.from_dict(search.cv_results_)
 print(
@@ -175,20 +196,24 @@ print(
     )
 )
 
-print("classification_report of best estimator:")
-print(classification_report(y, search.best_estimator_.predict(X)))
-print(pd.DataFrame(search.cv_results_).sort_values("rank_test_score", ascending=True).to_markdown())
+# print("classification_report of best estimator:")
+# print(classification_report(train_y, search.best_estimator_.predict(train_X)))
+# print(
+#     pd.DataFrame(search.cv_results_)
+#     .sort_values("rank_test_score", ascending=True)
+#     .to_markdown()
+# )
 
-export = False
+export = True
 if export:
-    prediction = search.best_estimator_.predict(X_test)
+    prediction = search.best_estimator_.predict(test_X)
 
     unique, counts = np.unique(prediction, return_counts=True)
     print(f"prediction stats: {dict(zip(unique, counts))}")
 
     out = []
     for i in range(len(prediction)):
-        out.append([int(i), round(prediction[i])])
+        out.append([int(i), int(prediction[i])])
 
     filename = f"results/{search.best_score_:.3f}-{slugify(json.dumps({**search.best_params_}))}.csv"
     np.savetxt(
@@ -196,7 +221,7 @@ if export:
         out,
         fmt=["%1.1f", "%1.14f"],
         delimiter=",",
-        header="id,y",
+        header="Id,y",
         comments="",
     )
     print("done, saved " + filename)
