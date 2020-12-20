@@ -98,9 +98,9 @@ def windowed(X, n_subjects, winsize_forward=5, winsize_backward=5):
         # repeat first and last samples such that every sample has all needed window
         padded = np.concatenate(
             (
-                np.tile(X_[0], (5, 1)),
+                np.tile(X_[0], (winsize_backward, 1)),
                 X_,
-                np.tile(X_[-1], (5, 1)),
+                np.tile(X_[-1], (winsize_forward, 1)),
             )
         )
         # flatten previous and following samples along with current sample
