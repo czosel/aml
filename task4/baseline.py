@@ -290,13 +290,13 @@ if export:
 
     out = []
     for i in range(len(prediction)):
-        out.append([int(i), int(prediction[i])])
+        out.append([int(i), float(prediction[i])])
 
     filename = f"results/{search.best_score_:.3f}-{slugify(json.dumps({**search.best_params_}))}.csv"
     np.savetxt(
         filename,
         out,
-        fmt=["%1.1f", "%1.14f"],
+        fmt=["%1.1f", "%1.1f"],
         delimiter=",",
         header="Id,y",
         comments="",
