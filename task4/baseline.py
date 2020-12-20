@@ -5,6 +5,8 @@ from tabulate import tabulate
 from slugify import slugify
 from sklearn.svm import SVC, LinearSVC, NuSVC
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier
+import sklearn
+from sklearn import metrics
 from sklearn.preprocessing import (
     StandardScaler,
     RobustScaler,
@@ -12,11 +14,13 @@ from sklearn.preprocessing import (
     QuantileTransformer,
     PowerTransformer,
 )
+from sklearn.model_selection import cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import RandomizedSearchCV
+import itertools
 from scipy import stats
 from sklearn.feature_selection import (
     SelectFromModel,
@@ -47,6 +51,42 @@ from sklearn.decomposition import PCA, KernelPCA
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from matplotlib import pyplot as plt
+
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, cm[i, j],
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
 
 
 def windowed(X, n_subjects, winsize_forward=5, winsize_backward=5):
@@ -83,14 +123,20 @@ test_X = windowed(np.loadtxt("features/cache/test_X.csv", delimiter=","), n_subj
 fold_indices = tuple(
     [
         (
-            np.arange(i * int(len(train_X) / 3), (i + 1) * int(len(train_X) / 3)),
-            np.arange(i * int(len(train_X) / 3), (i + 1) * int(len(train_X) / 3)),
+            np.arange(0, 2*int(len(train_X) / 3)),
+            np.arange(2 * int(len(train_X) / 3), 3 * int(len(train_X) / 3)),
+        ),
+        (
+            np.arange(int(len(train_X) / 3), 3 * int(len(train_X) / 3)),
+            np.arange(0, int(len(train_X) / 3)),
+        ),
+        (
+            np.concatenate((range(0,int(len(train_X) / 3)), range(2*int(len(train_X) / 3),3*int(len(train_X) / 3)))),
+            np.arange(int(len(train_X) / 3), 2*int(len(train_X) / 3)),
         )
-        for i in [0, 1, 2]
     ]
 )
-# for i in fold_indices:
-#     print(i.shape)
+
 print(train_X.shape, train_y.shape)
 
 fitting = Pipeline(
@@ -158,9 +204,8 @@ param_distributions = {
     # "xgb__n_estimators": [4, 10, 100, 500, 1000],
     # "xgb__max_depth": [2, 4, 6, 10],
     # "xgb__booster": ["gbtree", "gblinear"],
-    "LGBM__num_leaves": [5, 10, 40, 80, 120, 200],
-    "LGBM__min_data_in_leaf": [10,100,1000,1000],
-    "LGBM__class_weight": [None],
+    "LGBM__num_leaves": [80],#[5, 10, 40, 80, 120, 200],
+    "LGBM__min_data_in_leaf": [100],
     # "CAT__class_weights": [[6, 1, 6]], #[[1,1,1], [6, 1, 6]],
     # "CAT__depth": [8], #[4,6,8,10,12],
     # 'CAT__iterations': [50], #[10,50,100],
@@ -178,23 +223,49 @@ param_distributions = {
     # "deep__regularization": ["dropout"],
     # "deep__weights": [[6.0,1.0,6.0],[5.0,1.0,5.0],[7.0,1.0,7.0]],
 }
-search = RandomizedSearchCV(
-    fitting,
-    param_distributions,
-    cv=fold_indices,
-    scoring="balanced_accuracy",
-    n_iter=5,
-    n_jobs=1,
-    verbose=2,
-).fit(train_X, train_y)
-print(f"BMAC score={search.best_score_:.3f}): {search.best_params_}")
-frame = pd.DataFrame.from_dict(search.cv_results_)
-print(
-    tabulate(
-        frame[["params", "mean_test_score", "std_test_score", "rank_test_score"]],
-        headers="keys",
+
+ppl = False
+estm = None
+if ppl:
+    search = RandomizedSearchCV(
+        fitting,
+        param_distributions,
+        cv=fold_indices,
+        scoring="f1_micro",
+        n_iter=20,
+        n_jobs=1,
+        verbose=2,
+    ).fit(train_X, train_y)
+    print(f"F1_MICRO score={search.best_score_:.3f}): {search.best_params_}")
+    frame = pd.DataFrame.from_dict(search.cv_results_)
+    print(
+        tabulate(
+            frame[["params", "mean_test_score", "std_test_score", "rank_test_score"]],
+            headers="keys",
+        )
     )
-)
+
+    print(pd.DataFrame(search.cv_results_).sort_values("rank_test_score", ascending=True).to_markdown())
+    estm = search.best_estimator_
+
+
+else:
+    estm = fitting
+
+
+# print(classification_report(y, search.best_estimator_.predict(X)))
+
+# estm.fit(X,y)
+    # , plot_confusion_matrix
+
+
+y_pred = cross_val_predict(estm, train_X, train_y, cv=fold_indices)
+print(f"F1_MICRO score of current=", metrics.balanced_accuracy_score(train_y,y_pred))
+conf_mat = confusion_matrix(train_y, y_pred)
+print("classification_report of best estimator:")
+print(classification_report(train_y,y_pred))
+plot_confusion_matrix(conf_mat,[0,1,2,3])
+plt.show()
 
 # print("classification_report of best estimator:")
 # print(classification_report(train_y, search.best_estimator_.predict(train_X)))
@@ -203,6 +274,9 @@ print(
 #     .sort_values("rank_test_score", ascending=True)
 #     .to_markdown()
 # )
+plt.plot(train_y[0:200])
+plt.plot(y_pred[0:200])
+plt.show()
 
 export = True
 if export:
